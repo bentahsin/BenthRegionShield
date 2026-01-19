@@ -17,8 +17,16 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Towny için güvenli entegrasyon.
- * Hiçbir "import com.palmergames..." içermez.
+ * Towny eklentisi için "güvenli" bir entegrasyon (hook) sağlar.
+ * <p>
+ * "Güvenli" olmasının sebebi, bu sınıfın Towny API'sine karşı doğrudan bir derleme zamanı
+ * bağımlılığı (hard dependency) olmamasıdır. Bunun yerine, Java Reflection (Yansıtma) kullanarak
+ * Towny'nin sınıflarına ve metotlarına çalışma zamanında (runtime) erişir.
+ * Bu yaklaşım, sunucuda Towny eklentisi yüklü olmasa bile bu kodun bir {@link ClassNotFoundException} hatası
+ * fırlatmasını ve sunucuyu çökertmesini engeller.
+ * <p>
+ * Tüm yansıtma işlemleri {@link #canInitialize()} metodunda bir kez yapılır ve sonuçlar
+ * performans için sınıf alanlarında önbelleğe alınır.
  */
 public class TownySafeHook implements IShieldHook {
 
@@ -38,11 +46,26 @@ public class TownySafeHook implements IShieldHook {
 
     private boolean initialized = false;
 
+    /**
+     * Hook'un benzersiz adını döndürür.
+     *
+     * @return "Towny" String'i.
+     */
     @Override
     public String getName() {
         return "Towny";
     }
 
+    /**
+     * Bu hook'un başlatılıp başlatılamayacağını kontrol eder.
+     * <p>
+     * İlk olarak Towny eklentisinin sunucuda aktif olup olmadığını kontrol eder.
+     * Ardından, yansıtma kullanarak gerekli tüm Towny sınıflarını ve metotlarını bulmaya çalışır.
+     * Tüm gerekli bileşenler başarıyla bulunursa, bunları gelecekteki hızlı kullanım için
+     * sınıf alanlarında önbelleğe alır ve {@code true} döndürür. Aksi takdirde {@code false} döndürür.
+     *
+     * @return Hook başarıyla başlatıldıysa true, aksi takdirde false.
+     */
     @Override
     @SuppressWarnings({"unchecked", "rawtypes"})
     public boolean canInitialize() {
@@ -85,17 +108,27 @@ public class TownySafeHook implements IShieldHook {
                 this.getResidentUUIDMethod = ReflectionUtils.getMethod(residentClass, "getUUID");
             }
 
-            this.initialized = true;
-            return true;
+            this.initialized = getCachePermissionMethod != null && townyAPIInstance != null;
+            return this.initialized;
 
         } catch (Exception e) {
             return false;
         }
     }
 
+    /**
+     * Bir oyuncunun belirli bir konumda bir eylemi gerçekleştirip gerçekleştiremeyeceğini Towny'ye sorar.
+     * Bu işlemi, önbelleğe alınmış yansıtma metotlarını kullanarak yapar.
+     *
+     * @param player   Eylemi gerçekleştiren oyuncu.
+     * @param location Eylemin gerçekleştiği konum.
+     * @param type     Gerçekleştirilen etkileşim türü.
+     * @return Towny izin veriyorsa {@link ShieldResponse#allow()}, vermiyorsa {@link ShieldResponse#deny(String)}.
+     *         Hook başlatılmamışsa veya bir hata oluşursa varsayılan olarak izin verilir.
+     */
     @Override
     public ShieldResponse check(Player player, Location location, InteractionType type) {
-        if (!initialized || getCachePermissionMethod == null) return ShieldResponse.allow();
+        if (!initialized) return ShieldResponse.allow();
 
         try {
             Object townyAction = getTownyAction(type);
@@ -112,9 +145,15 @@ public class TownySafeHook implements IShieldHook {
         }
     }
 
+    /**
+     * Belirtilen konumdaki Towny kasabası hakkında bilgi alır.
+     *
+     * @param location Bilgi alınacak konum.
+     * @return Konumda bir kasaba varsa bir {@link RegionInfo} nesnesi; aksi takdirde veya bir hata oluşursa null.
+     */
     @Override
     public RegionInfo getRegionInfo(Location location) {
-        if (!initialized || townyAPIInstance == null) return null;
+        if (!initialized) return null;
 
         try {
             Object townBlock = ReflectionUtils.invoke(getTownBlockMethod, townyAPIInstance, location);
@@ -154,9 +193,16 @@ public class TownySafeHook implements IShieldHook {
         }
     }
 
+    /**
+     * Belirtilen konumdaki Towny arsasının (TownBlock) sınırlarını alır.
+     * Towny arsaları chunk tabanlı olduğundan, bu metot arsanın bulunduğu tüm chunk'ın sınırlarını döndürür.
+     *
+     * @param location Sınırları alınacak bölgenin içindeki bir konum.
+     * @return Chunk'ın sınırlarını içeren bir {@link RegionBounds} nesnesi veya arsa bulunamazsa null.
+     */
     @Override
     public RegionBounds getRegionBounds(Location location) {
-        if (!initialized || townyAPIInstance == null) return null;
+        if (!initialized) return null;
 
         World world = location.getWorld();
         if (world == null) return null;
@@ -191,6 +237,12 @@ public class TownySafeHook implements IShieldHook {
         }
     }
 
+    /**
+     * RegionShield'ın {@link InteractionType} enum'unu Towny'nin {@code ActionType} enum nesnesine çevirir.
+     *
+     * @param type Çevrilecek etkileşim türü.
+     * @return Karşılık gelen önbelleğe alınmış Towny ActionType nesnesi.
+     */
     private Object getTownyAction(InteractionType type) {
         switch (type) {
             case BLOCK_BREAK:
