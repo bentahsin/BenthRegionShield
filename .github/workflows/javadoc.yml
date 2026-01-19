@@ -1,0 +1,46 @@
+name: Deploy Javadocs
+
+on:
+  push:
+    branches: [ "master", "main" ]
+    paths:
+      - 'src/**'
+  workflow_dispatch:
+
+jobs:
+  deploy-javadoc:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Depoyu Çek
+        uses: actions/checkout@v4
+
+      - name: JDK 17 Kurulumu
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Javadoc Oluştur
+        run: mvn javadoc:javadoc -DskipTests
+
+      - name: Javadoc'ları VDS'e Gönder (SCP)
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.VDS_IP }}
+          username: ${{ secrets.VDS_USER }}
+          key: ${{ secrets.VDS_SSH_KEY }}
+          port: 22
+          source: "target/site/apidocs/*"
+          target: "/var/www/javadoc/BenthRegionShield"
+          strip_components: 3
+
+      - name: İzinleri Düzelt (Opsiyonel)
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.VDS_IP }}
+          username: ${{ secrets.VDS_USER }}
+          key: ${{ secrets.VDS_SSH_KEY }}
+          script: |
+            chmod -R 755 /var/www/javadoc/BenthRegionShield

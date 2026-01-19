@@ -14,10 +14,10 @@ jobs:
       - name: Depoyu Çek
         uses: actions/checkout@v4
 
-      - name: JDK 21 Kurulumu
+      - name: JDK 17 Kurulumu
         uses: actions/setup-java@v4
         with:
-          java-version: '21'
+          java-version: '17'
           distribution: 'temurin'
           cache: 'maven'
 
