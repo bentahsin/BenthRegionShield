@@ -2,10 +2,7 @@ package com.bentahsin.regionshield;
 
 import com.bentahsin.regionshield.api.IShieldHook;
 import com.bentahsin.regionshield.api.ShieldResponse;
-import com.bentahsin.regionshield.internal.RegionLimitManager;
-import com.bentahsin.regionshield.internal.RegionMovementListener;
-import com.bentahsin.regionshield.internal.RegionVisualizer;
-import com.bentahsin.regionshield.internal.ShieldGate;
+import com.bentahsin.regionshield.internal.*;
 import com.bentahsin.regionshield.model.InteractionType;
 import com.bentahsin.regionshield.model.RegionBounds;
 import com.bentahsin.regionshield.model.RegionInfo;
@@ -29,7 +26,7 @@ public class BenthRegionShield {
     @Getter
     private final JavaPlugin plugin;
     private final List<IShieldHook> hooks;
-    private final Cache<String, ShieldResponse> resultCache;
+    private final Cache<ShieldCacheKey, ShieldResponse> resultCache;
 
     @Getter
     private final ShieldGate gate;
@@ -84,7 +81,15 @@ public class BenthRegionShield {
             return ShieldResponse.allow();
         }
 
-        String cacheKey = generateCacheKey(player, location, type);
+        ShieldCacheKey cacheKey = new ShieldCacheKey(
+                player.getUniqueId(),
+                Objects.requireNonNull(location.getWorld()).getName(),
+                location.getBlockX(),
+                location.getBlockY(),
+                location.getBlockZ(),
+                type
+        );
+
         ShieldResponse cachedResponse = resultCache.getIfPresent(cacheKey);
         if (cachedResponse != null) return cachedResponse;
 
@@ -166,13 +171,6 @@ public class BenthRegionShield {
             plugin.getLogger().log(Level.SEVERE, "[RegionShield] Specific Check hatası: " + hookName, e);
             return ShieldResponse.allow();
         }
-    }
-
-    private String generateCacheKey(Player player, Location location, InteractionType type) {
-        return player.getUniqueId() + "|" +
-                Objects.requireNonNull(location.getWorld()).getName() + "|" +
-                location.getBlockX() + "|" + location.getBlockY() + "|" + location.getBlockZ() + "|" +
-                type.name();
     }
 
     private void logDebug(Player player, String provider) {
