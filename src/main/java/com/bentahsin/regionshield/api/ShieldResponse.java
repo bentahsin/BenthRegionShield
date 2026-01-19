@@ -17,7 +17,7 @@ import lombok.ToString;
  */
 @Getter
 @ToString
-@RequiredArgsConstructor(access = AccessLevel.PRIVATE) // Sadece statik fabrika metotlarının kullanımını zorunlu kılar.
+@RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public class ShieldResponse {
 
     /**
