@@ -4,6 +4,7 @@ import com.bentahsin.regionshield.BenthRegionShield;
 import com.bentahsin.regionshield.events.BenthRegionEnterEvent;
 import com.bentahsin.regionshield.events.BenthRegionLeaveEvent;
 import com.bentahsin.regionshield.model.RegionInfo;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
@@ -21,6 +22,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
+@SuppressFBWarnings({"EI_EXPOSE_REP", "EI_EXPOSE_REP2"})
 public class RegionMovementListener implements Listener {
 
     private final BenthRegionShield manager;

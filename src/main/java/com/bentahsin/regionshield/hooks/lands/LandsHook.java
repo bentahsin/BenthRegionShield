@@ -6,6 +6,7 @@ import com.bentahsin.regionshield.internal.ReflectionUtils;
 import com.bentahsin.regionshield.model.InteractionType;
 import com.bentahsin.regionshield.model.RegionBounds;
 import com.bentahsin.regionshield.model.RegionInfo;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import me.angeschossen.lands.api.flags.Flags;
 import me.angeschossen.lands.api.flags.type.RoleFlag;
 import me.angeschossen.lands.api.integration.LandsIntegration;
@@ -20,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 
 @SuppressWarnings("deprecation")
+@SuppressFBWarnings({"EI_EXPOSE_REP", "EI_EXPOSE_REP2"})
 public class LandsHook implements IShieldHook {
 
     private final Plugin plugin;

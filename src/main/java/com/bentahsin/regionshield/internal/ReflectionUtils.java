@@ -1,5 +1,6 @@
 package com.bentahsin.regionshield.internal;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import lombok.experimental.UtilityClass;
 import org.bukkit.Bukkit;
 
@@ -11,6 +12,7 @@ import java.lang.reflect.Method;
  * try-catch bloklarını tek bir yerde toplar ve kod kirliliğini önler.
  */
 @UtilityClass
+@SuppressFBWarnings("REFLF_REFLECTION_MAY_INCREASE_ACCESSIBILITY_OF_FIELD")
 public class ReflectionUtils {
 
     /**

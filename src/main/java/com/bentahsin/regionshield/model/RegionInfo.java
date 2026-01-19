@@ -1,5 +1,6 @@
 package com.bentahsin.regionshield.model;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.ToString;
@@ -10,6 +11,7 @@ import java.util.UUID;
 
 @Getter
 @ToString
+@SuppressFBWarnings({"EI_EXPOSE_REP2"})
 public class RegionInfo {
     private final String id;
     private final List<UUID> owners;

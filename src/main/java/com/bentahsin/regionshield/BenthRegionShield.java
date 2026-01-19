@@ -8,9 +8,11 @@ import com.bentahsin.regionshield.model.RegionBounds;
 import com.bentahsin.regionshield.model.RegionInfo;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import lombok.Getter;
 import lombok.Setter;
 import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -23,11 +25,13 @@ import java.util.logging.Level;
 public class BenthRegionShield {
 
     @Getter
+    @SuppressFBWarnings({"EI_EXPOSE_REP", "EI_EXPOSE_REP2"})
     private final JavaPlugin plugin;
     private final List<IShieldHook> hooks;
     private final Cache<ShieldCacheKey, ShieldResponse> resultCache;
 
     @Getter
+    @SuppressFBWarnings("EI_EXPOSE_REP")
     private final ShieldGate gate;
 
     private final RegionLimitManager limitManager;
@@ -38,6 +42,7 @@ public class BenthRegionShield {
     @Getter @Setter
     private String bypassPermission = "regionshield.bypass";
 
+    @SuppressFBWarnings("EI_EXPOSE_REP2")
     public BenthRegionShield(JavaPlugin plugin) {
         this.plugin = plugin;
         this.hooks = new ArrayList<>();
@@ -80,7 +85,8 @@ public class BenthRegionShield {
             return ShieldResponse.allow();
         }
 
-        if (location.getWorld() == null) {
+        World world = location.getWorld();
+        if (world == null) {
             return ShieldResponse.allow();
         }
 

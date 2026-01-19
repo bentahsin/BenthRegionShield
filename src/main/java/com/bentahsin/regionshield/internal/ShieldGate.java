@@ -4,6 +4,7 @@ import com.bentahsin.regionshield.BenthRegionShield;
 import com.bentahsin.regionshield.annotations.*;
 import com.bentahsin.regionshield.api.ShieldResponse;
 import com.bentahsin.regionshield.model.RegionInfo;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
@@ -17,6 +18,7 @@ import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
+@SuppressFBWarnings({"EI_EXPOSE_REP", "EI_EXPOSE_REP2"})
 public class ShieldGate {
 
     private final BenthRegionShield manager;
