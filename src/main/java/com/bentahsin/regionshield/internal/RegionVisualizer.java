@@ -9,10 +9,22 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
 
+/**
+ * Bir bölgenin sınırlarını oyunculara parçacıklar (particles) aracılığıyla görsel olarak göstermek için
+ * yardımcı metotlar içeren bir dahili utility sınıfı.
+ * <p>
+ * Bu sınıfın metotları statiktir ve doğrudan bir örnek oluşturulması amaçlanmamıştır.
+ */
 public class RegionVisualizer {
 
     /**
-     * Sınırları 5 saniye boyunca çizer.
+     * Belirtilen bir bölgenin sınırlarını bir oyuncuya belirli bir süre boyunca gösterir.
+     * Sınırlar, periyodik olarak parçacıklar çizilerek oluşturulur.
+     * Görev, oyuncu çevrimdışı olursa veya süre dolarsa kendini otomatik olarak iptal eder.
+     *
+     * @param plugin Görevi (task) zamanlamak için kullanılacak olan ana eklenti (plugin) örneği.
+     * @param player Sınırları görecek olan oyuncu.
+     * @param bounds Görselleştirilecek olan bölgenin {@link RegionBounds} nesnesi.
      */
     public static void show(JavaPlugin plugin, Player player, RegionBounds bounds) {
         if (bounds == null || !player.isOnline()) return;
@@ -31,6 +43,14 @@ public class RegionVisualizer {
         }.runTaskTimer(plugin, 0L, 5L);
     }
 
+    /**
+     * Minimum ve maksimum köşe noktalarıyla tanımlanan bir küpoidin (dikdörtgen prizma) 12 kenarını çizer.
+     * Bu metot, bölgenin tam bir çerçevesini oluşturmak için kullanılır.
+     *
+     * @param player Parçacıkların gösterileceği oyuncu.
+     * @param min    Küpoidin minimum köşe noktası (en düşük X, Y, Z).
+     * @param max    Küpoidin maksimum köşe noktası (en yüksek X, Y, Z).
+     */
     private static void drawCuboid(Player player, Location min, Location max) {
         World world = min.getWorld();
         if (world == null || !world.equals(player.getWorld())) return;
@@ -54,9 +74,21 @@ public class RegionVisualizer {
         drawLine(player, maxX, minY, maxZ, maxX, maxY, maxZ);
     }
 
+    /**
+     * İki 3D nokta arasında parçacıklar kullanarak düz bir çizgi çizer.
+     * Çizgi, başlangıç noktasından bitiş noktasına doğru küçük adımlarla ilerleyerek oluşturulur.
+     *
+     * @param player Parçacıkların gösterileceği oyuncu.
+     * @param x1     Başlangıç noktasının X koordinatı.
+     * @param y1     Başlangıç noktasının Y koordinatı.
+     * @param z1     Başlangıç noktasının Z koordinatı.
+     * @param x2     Bitiş noktasının X koordinatı.
+     * @param y2     Bitiş noktasının Y koordinatı.
+     * @param z2     Bitiş noktasının Z koordinatı.
+     */
     private static void drawLine(Player player, double x1, double y1, double z1, double x2, double y2, double z2) {
         Location start = new Location(player.getWorld(), x1, y1, z1);
-        double distance = Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2) + Math.pow(z2 - z1, 2));
+        double distance = start.distance(new Location(player.getWorld(), x2, y2, z2));
         double step = 0.5;
 
         Vector vector = new Vector(x2 - x1, y2 - y1, z2 - z1).normalize().multiply(step);

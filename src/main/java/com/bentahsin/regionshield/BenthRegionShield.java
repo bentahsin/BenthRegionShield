@@ -22,6 +22,11 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 
+/**
+ * BenthRegionShield API'sinin ana sınıfı.
+ * Bu sınıf, birleşik bir arayüz aracılığıyla çeşitli bölge koruma eklentilerini (hook'lar)
+ * yönetmek ve sorgulamak için merkezi bir merkez görevi görür.
+ */
 public class BenthRegionShield {
 
     @Getter
@@ -42,6 +47,11 @@ public class BenthRegionShield {
     @Getter @Setter
     private String bypassPermission = "regionshield.bypass";
 
+    /**
+     * Yeni bir BenthRegionShield örneği oluşturur.
+     *
+     * @param plugin Bu API'ye sahip olan JavaPlugin örneği.
+     */
     @SuppressFBWarnings("EI_EXPOSE_REP2")
     public BenthRegionShield(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -58,6 +68,12 @@ public class BenthRegionShield {
         plugin.getServer().getPluginManager().registerEvents(new RegionMovementListener(this), plugin);
     }
 
+    /**
+     * Yeni bir shield kancası (hook) kaydeder. Hook'lar, farklı bölge koruma eklentileriyle
+     * entegre olmak için kullanılır. Kaydedilen hook'lar öncelik değerine göre (en yüksekten en düşüğe) sıralanır.
+     *
+     * @param hook Kaydedilecek hook uygulaması.
+     */
     public void registerHook(IShieldHook hook) {
         if (hook == null) return;
 
@@ -71,15 +87,37 @@ public class BenthRegionShield {
         }
     }
 
+    /**
+     * Mevcut olarak kayıtlı tüm hook'ları kaldırır ve sonuç önbelleğini temizler.
+     */
     public void unregisterAll() {
         hooks.clear();
         resultCache.invalidateAll();
     }
 
+    /**
+     * Bir oyuncunun belirli bir konumda belirli bir etkileşimi gerçekleştirmesine izin verilip verilmediğini kontrol eder.
+     * Bu, basit bir boolean döndüren kullanışlı bir metottur.
+     *
+     * @param player   Etkileşimi gerçekleştiren oyuncu.
+     * @param location Etkileşimin gerçekleştiği konum.
+     * @param type     Gerçekleştirilen etkileşim türü.
+     * @return Oyuncunun etkileşimde bulunmasına izin veriliyorsa true, aksi takdirde false.
+     */
     public boolean canInteract(Player player, Location location, InteractionType type) {
         return checkResult(player, location, type).isAllowed();
     }
 
+    /**
+     * Bir oyuncunun bir konumda etkileşim kurup kuramayacağını görmek için ayrıntılı bir kontrol gerçekleştirir.
+     * Bu metot, bypass yetkilerini kontrol eder, önbelleğe bakar ve ardından kayıtlı tüm hook'ları
+     * öncelik sırasına göre sorgular. Eylemi reddeden ilk hook, sonucu belirler.
+     *
+     * @param player   Kontrol edilecek oyuncu.
+     * @param location Kontrol edilecek konum.
+     * @param type     Kontrol edilecek etkileşim türü.
+     * @return Etkileşimin sonucunu içeren bir {@link ShieldResponse} nesnesi.
+     */
     public ShieldResponse checkResult(Player player, Location location, InteractionType type) {
         if (player.hasPermission(bypassPermission) || player.isOp()) {
             return ShieldResponse.allow();
@@ -123,6 +161,13 @@ public class BenthRegionShield {
         return allowed;
     }
 
+    /**
+     * Belirli bir konumdaki bölge hakkında bilgi alır.
+     * Hook'ları öncelik sırasına göre sorgular ve bir bölge tanımlayan ilk hook'tan gelen bilgiyi döndürür.
+     *
+     * @param location Bilgi alınacak konum.
+     * @return Bir {@link RegionInfo} nesnesi veya bölge bulunamazsa null.
+     */
     public RegionInfo getRegionInfo(Location location) {
         for (IShieldHook hook : hooks) {
             try {
@@ -135,11 +180,24 @@ public class BenthRegionShield {
         return null;
     }
 
+    /**
+     * Adına göre belirli bir hook'tan bölge bilgilerini alır.
+     *
+     * @param hookName   Bilgiyi sağlayacak hook'un adı.
+     * @param location   Bilgi alınacak konum.
+     * @return Bir {@link RegionInfo} nesnesi veya hook bulunamazsa/bölge yoksa null.
+     */
     public RegionInfo getRegionInfo(String hookName, Location location) {
         IShieldHook hook = getHook(hookName);
         return (hook != null) ? hook.getRegionInfo(location) : null;
     }
 
+    /**
+     * Oyuncunun o anda içinde bulunduğu bölgenin sınırlarını görsel olarak (parçacıklarla) gösterir.
+     * Sınırlar, oyuncunun konumunda bir bölge tanımlayan en yüksek öncelikli hook tarafından sağlanır.
+     *
+     * @param player Sınırları görecek oyuncu.
+     */
     public void showBoundaries(Player player) {
         Location loc = player.getLocation();
         RegionBounds bounds = null;
@@ -162,6 +220,12 @@ public class BenthRegionShield {
         RegionVisualizer.show(plugin, player, bounds);
     }
 
+    /**
+     * Kayıtlı bir hook'u benzersiz adına göre alır.
+     *
+     * @param name Alınacak hook'un adı (büyük/küçük harfe duyarsız).
+     * @return {@link IShieldHook} örneği veya bulunamazsa null.
+     */
     public IShieldHook getHook(String name) {
         return hooks.stream()
                 .filter(h -> h.getName().equalsIgnoreCase(name))
@@ -169,11 +233,25 @@ public class BenthRegionShield {
                 .orElse(null);
     }
 
+    /**
+     * Tek bir hook'u adına göre kayıttan kaldırır ve tüm önbelleği geçersiz kılar.
+     *
+     * @param name Kayıttan kaldırılacak hook'un adı (büyük/küçük harfe duyarsız).
+     */
     public void unregisterHook(String name) {
         hooks.removeIf(hook -> hook.getName().equalsIgnoreCase(name));
         resultCache.invalidateAll();
     }
 
+    /**
+     * Diğerlerini yoksayarak yalnızca belirli, adlandırılmış bir hook'u kullanarak bir etkileşim kontrolü gerçekleştirir.
+     *
+     * @param hookName   Kullanılacak hook'un adı.
+     * @param player     Kontrol edilecek oyuncu.
+     * @param location   Kontrol edilecek konum.
+     * @param type       Kontrol edilecek etkileşim türü.
+     * @return Hook tarafından döndürülen {@link ShieldResponse} veya hook bulunamazsa izin veren bir response.
+     */
     public ShieldResponse checkSpecific(String hookName, Player player, Location location, InteractionType type) {
         IShieldHook hook = getHook(hookName);
         if (hook == null) return ShieldResponse.allow();
@@ -191,18 +269,27 @@ public class BenthRegionShield {
     }
 
     /**
-     * Çağrıldığı metodu Annotation açısından denetler.
-     * Kullanım: if (!api.guard(this, "metodIsmi", player)) return;
+     * Çağrıldığı metodu RegionShield ek açıklamaları (annotations) açısından denetler.
+     * Bu, geliştiricilerin kodlarını kolayca bölge korumasına almasını sağlayan güçlü bir özelliktir.
+     * <p>
+     * Kullanım: {@code if (!api.guard(this, "metodIsmi", player)) return;}
+     *
+     * @param instance   Metodun ait olduğu nesne örneği.
+     * @param methodName Denetlenecek metodun adı.
+     * @param player     Kontrolün yapılacağı oyuncu.
+     * @param paramTypes Metodun parametre türleri (metot overload durumları için).
+     * @return Oyuncunun metoda devam etmesine izin veriliyorsa true, engellendiyse false.
      */
     public boolean guard(Object instance, String methodName, Player player, Class<?>... paramTypes) {
         return gate.inspect(instance, methodName, player, paramTypes);
     }
 
     /**
-     * Bir bölgeye oyuncu limiti koyar.
-     * @param provider Eklenti ismi (WorldGuard, Towny vb.)
-     * @param regionId Bölge ID'si
-     * @param limit Maksimum oyuncu sayısı
+     * Bir bölgeye oyuncu limiti koyar. Belirtilen bölgeye girebilecek maksimum oyuncu sayısını ayarlar.
+     *
+     * @param provider Eklenti ismi (Örn: "WorldGuard", "Towny"). Bu, hook adıyla eşleşmelidir.
+     * @param regionId Bölgenin kimliği (ID).
+     * @param limit    Bu bölge için maksimum oyuncu sayısı.
      */
     public void setRegionLimit(String provider, String regionId, int limit) {
         limitManager.setLimit(provider, regionId, limit);
