@@ -62,8 +62,8 @@ public class WorldGuard7Worker implements IWorldGuardWorker {
         BlockVector3 min = region.getMinimumPoint();
         BlockVector3 max = region.getMaximumPoint();
         World world = location.getWorld();
-        Location locMin = new Location(world, min.getX(), min.getY(), min.getZ());
-        Location locMax = new Location(world, max.getX(), max.getY(), max.getZ());
+        Location locMin = new Location(world, min.x(), min.y(), min.z());
+        Location locMax = new Location(world, max.x(), max.y(), max.z());
         return new RegionBounds(locMin, locMax);
     }
 }

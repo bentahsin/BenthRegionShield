@@ -64,7 +64,7 @@
         <dependency>
             <groupId>com.sk89q.worldguard</groupId>
             <artifactId>worldguard-bukkit</artifactId>
-            <version>7.0.0</version>
+            <version>7.0.9</version>
             <scope>provided</scope>
             <exclusions>
                 <exclusion>
@@ -75,16 +75,35 @@
         </dependency>
 
         <dependency>
-            <groupId>com.github.Angeschossen</groupId>
-            <artifactId>LandsAPI</artifactId>
-            <version>6.29.12</version>
+            <groupId>com.sk89q.worldedit</groupId>
+            <artifactId>worldedit-bukkit</artifactId>
+            <version>7.3.0</version>
             <scope>provided</scope>
         </dependency>
 
         <dependency>
-            <groupId>com.palmergames.bukkit.towny</groupId>
-            <artifactId>towny</artifactId>
-            <version>0.100.3.0</version>
+            <groupId>com.sk89q.worldguard</groupId>
+            <artifactId>worldguard-core</artifactId>
+            <version>7.0.9</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.sk89q.worldedit</groupId>
+            <artifactId>worldedit-core</artifactId>
+            <version>7.3.0</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+            <version>32.1.2-jre</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.github.Angeschossen</groupId>
+            <artifactId>LandsAPI</artifactId>
+            <version>6.29.12</version>
             <scope>provided</scope>
         </dependency>
 
@@ -231,6 +250,9 @@
                         </goals>
                         <configuration>
                             <failOnWarning>true</failOnWarning>
+                            <ignoredUnusedDeclaredDependencies>
+                                <ignoredUnusedDeclaredDependency>org.projectlombok:lombok</ignoredUnusedDeclaredDependency>
+                            </ignoredUnusedDeclaredDependencies>
                         </configuration>
                     </execution>
                 </executions>

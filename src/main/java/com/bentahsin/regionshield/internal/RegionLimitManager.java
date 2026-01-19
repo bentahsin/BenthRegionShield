@@ -74,12 +74,10 @@ public class RegionLimitManager implements Listener {
 
         RegionInfo info = event.getRegion();
 
-        if (isFull(info)) {
-            if (!event.getPlayer().hasPermission("regionshield.bypass.limit")) {
+        if (isFull(info) && !event.getPlayer().hasPermission("regionshield.bypass.limit")) {
                 event.setCancelled(true);
                 event.getPlayer().sendMessage("§cBu bölge dolu! (" + activeCounts.get(getKey(info)) + "/" + limits.get(getKey(info)) + ")");
                 return;
-            }
         }
         increment(info);
     }

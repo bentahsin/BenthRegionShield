@@ -46,11 +46,10 @@ public class RegionMovementListener implements Listener {
     public void onMove(PlayerMoveEvent event) {
         Location from = event.getFrom();
         Location to = event.getTo();
-        if (to == null || (from.getBlockX() == to.getBlockX() &&
+        if (to == null || from.getBlockX() == to.getBlockX() &&
                 from.getBlockY() == to.getBlockY() &&
-                from.getBlockZ() == to.getBlockZ())) {
-            return;
-        }
+                from.getBlockZ() == to.getBlockZ()) return;
+
         handleMove(event.getPlayer(), to, event);
     }
 
