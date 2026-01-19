@@ -4,6 +4,9 @@ import com.bentahsin.regionshield.BenthRegionShield;
 import com.bentahsin.regionshield.annotations.*;
 import com.bentahsin.regionshield.api.ShieldResponse;
 import com.bentahsin.regionshield.model.RegionInfo;
+import org.bukkit.Material;
+import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Player;
 
 import java.lang.reflect.Method;
@@ -22,25 +25,29 @@ public class ShieldGate {
             Class<?> clazz = instance.getClass();
             Method method = clazz.getMethod(methodName, paramTypes);
 
-            if (!processAll(clazz.getAnnotation(RegionCheck.class),
+            if (!processAll(
+                    clazz.getAnnotation(RegionCheck.class),
                     clazz.getAnnotation(RegionLimit.class),
                     clazz.getAnnotation(RegionRole.class),
                     clazz.getAnnotation(RequireWilderness.class),
                     clazz.getAnnotation(RegionProvider.class),
+                    clazz.getAnnotation(RegionBlacklist.class),
+                    clazz.getAnnotation(RequireBlock.class),   
+                    clazz.getAnnotation(ShieldBypass.class),   
                     player)) {
                 return false;
             }
 
-            if (!processAll(method.getAnnotation(RegionCheck.class),
+            return processAll(
+                    method.getAnnotation(RegionCheck.class),
                     method.getAnnotation(RegionLimit.class),
                     method.getAnnotation(RegionRole.class),
                     method.getAnnotation(RequireWilderness.class),
                     method.getAnnotation(RegionProvider.class),
-                    player)) {
-                return false;
-            }
-
-            return true;
+                    method.getAnnotation(RegionBlacklist.class),
+                    method.getAnnotation(RequireBlock.class),
+                    method.getAnnotation(ShieldBypass.class),
+                    player);
 
         } catch (NoSuchMethodException e) {
             e.printStackTrace();
@@ -49,10 +56,37 @@ public class ShieldGate {
     }
 
     private boolean processAll(RegionCheck check, RegionLimit limit, RegionRole role,
-                               RequireWilderness wilderness, RegionProvider provider, Player player) {
+                               RequireWilderness wilderness, RegionProvider provider,
+                               RegionBlacklist blacklist, RequireBlock requireBlock, ShieldBypass bypass,
+                               Player player) {
+
+        // --- 1. @ShieldBypass ---
+        if (bypass != null && player.hasPermission(bypass.value())) {
+            return true;
+        }
+
+        // --- 2. @RequireBlock ---
+        if (requireBlock != null) {
+            Block block;
+            if (requireBlock.checkGround()) {
+                block = player.getLocation().getBlock().getRelative(BlockFace.DOWN);
+            } else {
+                block = player.getLocation().getBlock();
+            }
+
+            boolean match = false;
+            for (Material mat : requireBlock.value()) {
+                if (block.getType() == mat) {
+                    match = true;
+                    break;
+                }
+            }
+            if (!match) return false;
+        }
+
         RegionInfo info;
 
-        // --- 1. @RegionProvider ---
+        // --- 3. @RegionProvider ---
         if (provider != null) {
             info = manager.getRegionInfo(provider.value(), player.getLocation());
             if (info == null) return false;
@@ -61,11 +95,23 @@ public class ShieldGate {
             info = manager.getRegionInfo(player.getLocation());
         }
 
-        // --- 2. @RequireWilderness ---
+        // --- 4. @RegionBlacklist ---
+        if (blacklist != null && info != null) {
+            if (blacklist.provider().isEmpty() || info.getProvider().equalsIgnoreCase(blacklist.provider())) {
+                for (String bannedId : blacklist.ids()) {
+                    if (info.getId().equalsIgnoreCase(bannedId)) {
+                        return false;
+                    }
+                }
+            }
+        }
+
+        // --- 5. @RequireWilderness ---
         if (wilderness != null) {
             return info == null;
         }
 
+        // --- 6. @RegionCheck ---
         if (check != null) {
             if (!check.bypassPerm().isEmpty() && player.hasPermission(check.bypassPerm())) {
             } else {
@@ -80,7 +126,7 @@ public class ShieldGate {
             return limit == null && role == null;
         }
 
-        // --- 4. @RegionLimit ---
+        // --- 7. @RegionLimit ---
         if (limit != null) {
             if (!info.getId().equalsIgnoreCase(limit.id())) {
                 return false;
@@ -90,7 +136,7 @@ public class ShieldGate {
             }
         }
 
-        // --- 5. @RegionRole ---
+        // --- 8. @RegionRole ---
         if (role != null) {
             boolean authorized = false;
             UUID uuid = player.getUniqueId();
