@@ -17,7 +17,6 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 
@@ -81,9 +80,13 @@ public class BenthRegionShield {
             return ShieldResponse.allow();
         }
 
+        if (location.getWorld() == null) {
+            return ShieldResponse.allow();
+        }
+
         ShieldCacheKey cacheKey = new ShieldCacheKey(
                 player.getUniqueId(),
-                Objects.requireNonNull(location.getWorld()).getName(),
+                location.getWorld().getName(),
                 location.getBlockX(),
                 location.getBlockY(),
                 location.getBlockZ(),
@@ -139,7 +142,11 @@ public class BenthRegionShield {
             try {
                 bounds = hook.getRegionBounds(loc);
                 if (bounds != null) break;
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                if (debugMode) {
+                    plugin.getLogger().log(Level.WARNING, "Error getting bounds from hook: " + hook.getName(), e);
+                }
+            }
         }
 
         if (bounds == null) {

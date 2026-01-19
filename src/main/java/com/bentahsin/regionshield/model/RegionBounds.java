@@ -1,17 +1,28 @@
 package com.bentahsin.regionshield.model;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.ToString;
 import org.bukkit.Location;
 import org.bukkit.World;
 
-@Data
-@AllArgsConstructor
+@ToString
 public class RegionBounds {
-    private Location min;
-    private Location max;
+    private final Location min;
+    private final Location max;
+
+    public RegionBounds(Location min, Location max) {
+        this.min = (min != null) ? min.clone() : null;
+        this.max = (max != null) ? max.clone() : null;
+    }
+
+    public Location getMin() {
+        return (min != null) ? min.clone() : null;
+    }
+
+    public Location getMax() {
+        return (max != null) ? max.clone() : null;
+    }
 
     public World getWorld() {
-        return min.getWorld();
+        return (min != null) ? min.getWorld() : null;
     }
 }

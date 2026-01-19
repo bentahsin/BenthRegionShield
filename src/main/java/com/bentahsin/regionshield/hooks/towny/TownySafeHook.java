@@ -14,7 +14,6 @@ import org.bukkit.entity.Player;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.UUID;
 
 /**
@@ -159,6 +158,9 @@ public class TownySafeHook implements IShieldHook {
     public RegionBounds getRegionBounds(Location location) {
         if (!initialized || townyAPIInstance == null) return null;
 
+        World world = location.getWorld();
+        if (world == null) return null;
+
         try {
             Object townBlock = ReflectionUtils.invoke(getTownBlockMethod, townyAPIInstance, location);
             if (townBlock == null) return null;
@@ -167,18 +169,17 @@ public class TownySafeHook implements IShieldHook {
             if (!hasTown) return null;
 
             org.bukkit.Chunk chunk = location.getChunk();
-            World world = location.getWorld();
 
             int minX = chunk.getX() * 16;
             int minZ = chunk.getZ() * 16;
             int minY = 0;
             try {
-                minY = Objects.requireNonNull(world).getMinHeight();
+                minY = world.getMinHeight();
             } catch (NoSuchMethodError ignored) { }
 
             int maxX = minX + 15;
             int maxZ = minZ + 15;
-            int maxY = Objects.requireNonNull(world).getMaxHeight();
+            int maxY = world.getMaxHeight();
 
             Location min = new Location(world, minX, minY, minZ);
             Location max = new Location(world, maxX, maxY, maxZ);
