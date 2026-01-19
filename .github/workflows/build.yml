@@ -4,24 +4,28 @@ on:
     branches: [ "master", "main" ]
   pull_request:
     branches: [ "master", "main" ]
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - name: Depoyu Çek (Checkout)
         uses: actions/checkout@v4
+
       - name: JDK 21 Kurulumu
         uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
-          cache:
-            maven: true
+          cache: 'maven'
+
       - name: Maven ile Derle ve Test Et
         run: mvn -B package --file pom.xml
+
       - name: SpotBugs Analizi (Kod Kalitesi)
         run: mvn spotbugs:check
         continue-on-error: true
+
       - name: Artifact Yükle (Derlenen JAR)
         uses: actions/upload-artifact@v4
         with:

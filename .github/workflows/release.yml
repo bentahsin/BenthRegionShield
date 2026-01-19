@@ -3,23 +3,27 @@ on:
   push:
     tags:
       - 'v*'
+
 permissions:
   contents: write
+
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
       - name: Depoyu Çek
         uses: actions/checkout@v4
+
       - name: JDK 21 Kurulumu
         uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
-          cache:
-            maven: true
+          cache: 'maven'
+
       - name: Maven ile Derle (Testleri Atla)
         run: mvn -B package -DskipTests --file pom.xml
+
       - name: Release Oluştur ve Yükle
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
