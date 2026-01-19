@@ -37,7 +37,7 @@ public class ASkyBlockHook implements IShieldHook {
 
             Class<?> islandClass = ReflectionUtils.getClass("com.wasteofplastic.askyblock.Island");
             this.getOwnerMethod = ReflectionUtils.getMethod(islandClass, "getOwner");
-            this.getMembersMethod = ReflectionUtils.getMethod(islandClass, "getMembers"); // Set<UUID> döner
+            this.getMembersMethod = ReflectionUtils.getMethod(islandClass, "getMembers");
 
             this.initialized = true;
             return true;

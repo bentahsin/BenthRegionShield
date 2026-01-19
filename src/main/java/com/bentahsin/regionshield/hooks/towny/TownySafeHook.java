@@ -117,8 +117,6 @@ public class TownySafeHook implements IShieldHook {
         if (!initialized) return null;
 
         try {
-            // TownyAPI (Modern) veya TownyUniverse (Eski) kullanımı
-            // Basitlik adına Reflection kullanmadan modern API örneği veriyorum (Towny 0.96+):
             com.palmergames.bukkit.towny.object.TownBlock tb = com.palmergames.bukkit.towny.TownyAPI.getInstance().getTownBlock(location);
 
             if (tb == null || !tb.hasTown()) return null;
