@@ -1,19 +1,20 @@
 package com.bentahsin.regionshield.hooks.worldguard;
 
 import com.bentahsin.regionshield.model.InteractionType;
+import com.bentahsin.regionshield.model.RegionBounds;
 import com.sk89q.worldedit.bukkit.BukkitAdapter;
+import com.sk89q.worldedit.math.BlockVector3;
 import com.sk89q.worldguard.WorldGuard;
 import com.sk89q.worldguard.bukkit.WorldGuardPlugin;
 import com.sk89q.worldguard.protection.flags.Flags;
 import com.sk89q.worldguard.protection.flags.StateFlag;
+import com.sk89q.worldguard.protection.regions.ProtectedRegion;
+import com.sk89q.worldguard.protection.regions.RegionContainer;
 import com.sk89q.worldguard.protection.regions.RegionQuery;
 import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.entity.Player;
 
-/**
- * WorldGuard 7.0.0 ve üzeri (1.13+) sürümler için çalışan işçi sınıfı.
- * WorldGuard API'sini doğrudan kullanır (Compile-time dependency).
- */
 public class WorldGuard7Worker implements IWorldGuardWorker {
 
     @Override
@@ -25,10 +26,6 @@ public class WorldGuard7Worker implements IWorldGuardWorker {
         return query.testState(weLoc, localPlayer, flag);
     }
 
-    /**
-     * Bizim InteractionType enum'ımızı WorldGuard'ın StateFlag'lerine çevirir.
-     * Referans: com.sk89q.worldguard.protection.flags.Flags
-     */
     private StateFlag getFlag(InteractionType type) {
         switch (type) {
             case BLOCK_BREAK:
@@ -52,5 +49,21 @@ public class WorldGuard7Worker implements IWorldGuardWorker {
             default:
                 return Flags.BUILD;
         }
+    }
+
+    public RegionBounds getRegionBounds(Location location) {
+        com.sk89q.worldedit.util.Location weLoc = BukkitAdapter.adapt(location);
+        RegionContainer container = WorldGuard.getInstance().getPlatform().getRegionContainer();
+        com.sk89q.worldguard.protection.managers.RegionManager manager = container.get((com.sk89q.worldedit.world.World) weLoc.getExtent());
+        if (manager == null) return null;
+        com.sk89q.worldguard.protection.ApplicableRegionSet set = manager.getApplicableRegions(weLoc.toVector().toBlockPoint());
+        if (set.size() == 0) return null;
+        ProtectedRegion region = set.getRegions().iterator().next();
+        BlockVector3 min = region.getMinimumPoint();
+        BlockVector3 max = region.getMaximumPoint();
+        World world = location.getWorld();
+        Location locMin = new Location(world, min.getX(), min.getY(), min.getZ());
+        Location locMax = new Location(world, max.getX(), max.getY(), max.getZ());
+        return new RegionBounds(locMin, locMax);
     }
 }

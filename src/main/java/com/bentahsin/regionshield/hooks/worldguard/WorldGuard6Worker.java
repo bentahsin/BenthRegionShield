@@ -2,12 +2,14 @@ package com.bentahsin.regionshield.hooks.worldguard;
 
 import com.bentahsin.regionshield.internal.ReflectionUtils;
 import com.bentahsin.regionshield.model.InteractionType;
+import com.bentahsin.regionshield.model.RegionBounds;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 
 import java.lang.reflect.Array;
 import java.lang.reflect.Method;
+import java.util.Iterator;
 
 public class WorldGuard6Worker implements IWorldGuardWorker {
 
@@ -20,6 +22,12 @@ public class WorldGuard6Worker implements IWorldGuardWorker {
     private Class<?> defaultFlagClass;
     private Class<?> stateFlagClass;
 
+    private Method getMinimumPointMethod;
+    private Method getMaximumPointMethod;
+    private Method getVectorXMethod;
+    private Method getVectorYMethod;
+    private Method getVectorZMethod;
+
     private boolean initialized;
 
     public WorldGuard6Worker() {
@@ -29,6 +37,9 @@ public class WorldGuard6Worker implements IWorldGuardWorker {
             Class<?> regionManagerClass = ReflectionUtils.getClass("com.sk89q.worldguard.protection.managers.RegionManager");
             Class<?> applicableRegionSetClass = ReflectionUtils.getClass("com.sk89q.worldguard.protection.ApplicableRegionSet");
             Class<?> regionAssociableClass = ReflectionUtils.getClass("com.sk89q.worldguard.protection.association.RegionAssociable");
+            Class<?> protectedRegionClass = ReflectionUtils.getClass("com.sk89q.worldguard.protection.regions.ProtectedRegion");
+
+            Class<?> blockVectorClass = ReflectionUtils.getClass("com.sk89q.worldedit.BlockVector");
 
             this.stateFlagClass = ReflectionUtils.getClass("com.sk89q.worldguard.protection.flags.StateFlag");
             this.defaultFlagClass = ReflectionUtils.getClass("com.sk89q.worldguard.protection.flags.DefaultFlag");
@@ -46,6 +57,13 @@ public class WorldGuard6Worker implements IWorldGuardWorker {
                 Class<?> stateFlagArrayClass = Array.newInstance(stateFlagClass, 0).getClass();
                 this.queryStateMethod = ReflectionUtils.getMethod(applicableRegionSetClass, "queryState", regionAssociableClass, stateFlagArrayClass);
             }
+
+            this.getMinimumPointMethod = ReflectionUtils.getMethod(protectedRegionClass, "getMinimumPoint");
+            this.getMaximumPointMethod = ReflectionUtils.getMethod(protectedRegionClass, "getMaximumPoint");
+
+            this.getVectorXMethod = ReflectionUtils.getMethod(blockVectorClass, "getX");
+            this.getVectorYMethod = ReflectionUtils.getMethod(blockVectorClass, "getY");
+            this.getVectorZMethod = ReflectionUtils.getMethod(blockVectorClass, "getZ");
 
             this.initialized = true;
 
@@ -77,6 +95,44 @@ public class WorldGuard6Worker implements IWorldGuardWorker {
 
         } catch (Exception e) {
             return true;
+        }
+    }
+
+    @Override
+    public RegionBounds getRegionBounds(Location location) {
+        if (!initialized) return null;
+
+        try {
+            Object regionManager = ReflectionUtils.invoke(getRegionManagerMethod, null, location.getWorld());
+            if (regionManager == null) return null;
+
+            Object regionSet = ReflectionUtils.invoke(getApplicableRegionsMethod, regionManager, location);
+            if (regionSet == null) return null;
+
+            Iterator<?> iterator = ((Iterable<?>) regionSet).iterator();
+            if (!iterator.hasNext()) return null;
+
+            Object region = iterator.next();
+
+            Object minVec = ReflectionUtils.invoke(getMinimumPointMethod, region);
+            Object maxVec = ReflectionUtils.invoke(getMaximumPointMethod, region);
+
+            double minX = (double) ReflectionUtils.invoke(getVectorXMethod, minVec);
+            double minY = (double) ReflectionUtils.invoke(getVectorYMethod, minVec);
+            double minZ = (double) ReflectionUtils.invoke(getVectorZMethod, minVec);
+
+            double maxX = (double) ReflectionUtils.invoke(getVectorXMethod, maxVec);
+            double maxY = (double) ReflectionUtils.invoke(getVectorYMethod, maxVec);
+            double maxZ = (double) ReflectionUtils.invoke(getVectorZMethod, maxVec);
+
+            World world = location.getWorld();
+            Location locMin = new Location(world, minX, minY, minZ);
+            Location locMax = new Location(world, maxX, maxY, maxZ);
+
+            return new RegionBounds(locMin, locMax);
+
+        } catch (Exception e) {
+            return null;
         }
     }
 

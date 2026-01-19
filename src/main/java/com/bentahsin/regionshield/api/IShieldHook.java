@@ -1,6 +1,7 @@
 package com.bentahsin.regionshield.api;
 
 import com.bentahsin.regionshield.model.InteractionType;
+import com.bentahsin.regionshield.model.RegionBounds;
 import com.bentahsin.regionshield.model.RegionInfo;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
@@ -42,6 +43,14 @@ public interface IShieldHook {
      * Eğer bölge yoksa null döner.
      */
     default RegionInfo getRegionInfo(Location location) {
+        return null;
+    }
+
+    /**
+     * Bölgenin sınırlarını döndürür.
+     * Desteklenmiyorsa veya bölge yoksa null döner.
+     */
+    default RegionBounds getRegionBounds(Location location) {
         return null;
     }
 }

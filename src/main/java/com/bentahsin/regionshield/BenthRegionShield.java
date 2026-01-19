@@ -2,7 +2,13 @@ package com.bentahsin.regionshield;
 
 import com.bentahsin.regionshield.api.IShieldHook;
 import com.bentahsin.regionshield.api.ShieldResponse;
+import com.bentahsin.regionshield.internal.RegionLimitManager;
+import com.bentahsin.regionshield.internal.RegionMovementListener;
+import com.bentahsin.regionshield.internal.RegionVisualizer;
+import com.bentahsin.regionshield.internal.ShieldGate;
 import com.bentahsin.regionshield.model.InteractionType;
+import com.bentahsin.regionshield.model.RegionBounds;
+import com.bentahsin.regionshield.model.RegionInfo;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import lombok.Getter;
@@ -18,41 +24,37 @@ import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 
-/**
- * BenthRegionShield kütüphanesinin ana yönetici sınıfıdır.
- * Tüm koruma hook'larını yönetir, sorguları işler ve performans için önbellekleme (caching) yapar.
- */
 public class BenthRegionShield {
 
     @Getter
     private final JavaPlugin plugin;
     private final List<IShieldHook> hooks;
-
-    /**
-     * Akıllı Önbellek Sistemi.
-     * Aynı oyuncu, aynı blok ve aynı işlem için 1 saniye içinde tekrar sorgu yaparsa
-     * hook'ları yormadan hafızadan cevap verir.
-     */
     private final Cache<String, ShieldResponse> resultCache;
+
+    @Getter
+    private final ShieldGate gate;
+
+    private final RegionLimitManager limitManager;
 
     @Getter @Setter
     private boolean debugMode = false;
 
-    /**
-     * Adminlerin korumaları aşması için gerekli yetki.
-     * Varsayılan: "regionshield.bypass"
-     */
     @Getter @Setter
     private String bypassPermission = "regionshield.bypass";
 
     public BenthRegionShield(JavaPlugin plugin) {
         this.plugin = plugin;
         this.hooks = new ArrayList<>();
+        this.gate = new ShieldGate(this);
+        this.limitManager = new RegionLimitManager(this);
 
         this.resultCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(500, TimeUnit.MILLISECONDS)
                 .maximumSize(10000)
                 .build();
+
+        plugin.getServer().getPluginManager().registerEvents(this.limitManager, plugin);
+        plugin.getServer().getPluginManager().registerEvents(new RegionMovementListener(this), plugin);
     }
 
     public void registerHook(IShieldHook hook) {
@@ -63,10 +65,8 @@ public class BenthRegionShield {
             hooks.sort(Comparator.comparingInt((IShieldHook h) -> h.getPriority().getValue()).reversed());
 
             plugin.getLogger().info("[RegionShield] Hook aktif: " + hook.getName());
-        } else {
-            if (debugMode) {
-                plugin.getLogger().warning("[RegionShield] Hook pas geçildi: " + hook.getName());
-            }
+        } else if (debugMode) {
+            plugin.getLogger().warning("[RegionShield] Hook pas geçildi: " + hook.getName());
         }
     }
 
@@ -79,9 +79,6 @@ public class BenthRegionShield {
         return checkResult(player, location, type).isAllowed();
     }
 
-    /**
-     * Detaylı yetki sorgusu (Cache Destekli).
-     */
     public ShieldResponse checkResult(Player player, Location location, InteractionType type) {
         if (player.hasPermission(bypassPermission) || player.isOp()) {
             return ShieldResponse.allow();
@@ -89,10 +86,7 @@ public class BenthRegionShield {
 
         String cacheKey = generateCacheKey(player, location, type);
         ShieldResponse cachedResponse = resultCache.getIfPresent(cacheKey);
-
-        if (cachedResponse != null) {
-            return cachedResponse;
-        }
+        if (cachedResponse != null) return cachedResponse;
 
         for (IShieldHook hook : hooks) {
             try {
@@ -100,12 +94,8 @@ public class BenthRegionShield {
 
                 if (response.isDenied()) {
                     if (debugMode) {
-                        plugin.getLogger().info(String.format(
-                                "[RegionShield] Engellendi -> Oyuncu: %s, Sebep: %s",
-                                player.getName(), response.getProviderName()
-                        ));
+                        logDebug(player, response.getProviderName());
                     }
-
                     resultCache.put(cacheKey, response);
                     return response;
                 }
@@ -119,44 +109,53 @@ public class BenthRegionShield {
         return allowed;
     }
 
-    /**
-     * Cache için benzersiz bir anahtar oluşturur.
-     */
-    private String generateCacheKey(Player player, Location location, InteractionType type) {
-        return player.getUniqueId() + "|" +
-                Objects.requireNonNull(location.getWorld()).getName() + "|" +
-                location.getBlockX() + "|" +
-                location.getBlockY() + "|" +
-                location.getBlockZ() + "|" +
-                type.name();
-    }
-
-    /**
-     * İsimle özel bir hook'u getirir.
-     * Örn: getHook("WorldGuard")
-     */
-    public IShieldHook getHook(String name) {
+    public RegionInfo getRegionInfo(Location location) {
         for (IShieldHook hook : hooks) {
-            if (hook.getName().equalsIgnoreCase(name)) {
-                return hook;
+            try {
+                RegionInfo info = hook.getRegionInfo(location);
+                if (info != null) return info;
+            } catch (Exception e) {
+                if (debugMode) plugin.getLogger().severe(e.getMessage());
             }
         }
         return null;
     }
 
-    /**
-     * Belirli bir hook'u devre dışı bırakmak için (Runtime).
-     */
+    public RegionInfo getRegionInfo(String hookName, Location location) {
+        IShieldHook hook = getHook(hookName);
+        return (hook != null) ? hook.getRegionInfo(location) : null;
+    }
+
+    public void showBoundaries(Player player) {
+        Location loc = player.getLocation();
+        RegionBounds bounds = null;
+
+        for (IShieldHook hook : hooks) {
+            try {
+                bounds = hook.getRegionBounds(loc);
+                if (bounds != null) break;
+            } catch (Exception ignored) {}
+        }
+
+        if (bounds == null) {
+            return;
+        }
+
+        RegionVisualizer.show(plugin, player, bounds);
+    }
+
+    public IShieldHook getHook(String name) {
+        return hooks.stream()
+                .filter(h -> h.getName().equalsIgnoreCase(name))
+                .findFirst()
+                .orElse(null);
+    }
+
     public void unregisterHook(String name) {
         hooks.removeIf(hook -> hook.getName().equalsIgnoreCase(name));
         resultCache.invalidateAll();
     }
 
-    /**
-     * Sadece belirtilen koruma eklentisine sorar.
-     * Diğerlerini ve Cache'i tamamen pas geçer.
-     * * Kullanım: manager.checkSpecific("WorldGuard", player, loc, type);
-     */
     public ShieldResponse checkSpecific(String hookName, Player player, Location location, InteractionType type) {
         IShieldHook hook = getHook(hookName);
         if (hook == null) return ShieldResponse.allow();
@@ -164,9 +163,37 @@ public class BenthRegionShield {
         try {
             return hook.check(player, location, type);
         } catch (Exception e) {
-            plugin.getLogger().log(java.util.logging.Level.SEVERE,
-                    "[RegionShield] Specific Check hatası (" + hookName + ")", e);
+            plugin.getLogger().log(Level.SEVERE, "[RegionShield] Specific Check hatası: " + hookName, e);
             return ShieldResponse.allow();
         }
+    }
+
+    private String generateCacheKey(Player player, Location location, InteractionType type) {
+        return player.getUniqueId() + "|" +
+                Objects.requireNonNull(location.getWorld()).getName() + "|" +
+                location.getBlockX() + "|" + location.getBlockY() + "|" + location.getBlockZ() + "|" +
+                type.name();
+    }
+
+    private void logDebug(Player player, String provider) {
+        plugin.getLogger().info("[RegionShield] Engellendi -> Oyuncu: " + player.getName() + ", Sebep: " + provider);
+    }
+
+    /**
+     * Çağrıldığı metodu Annotation açısından denetler.
+     * Kullanım: if (!api.guard(this, "metodIsmi", player)) return;
+     */
+    public boolean guard(Object instance, String methodName, Player player, Class<?>... paramTypes) {
+        return gate.inspect(instance, methodName, player, paramTypes);
+    }
+
+    /**
+     * Bir bölgeye oyuncu limiti koyar.
+     * @param provider Eklenti ismi (WorldGuard, Towny vb.)
+     * @param regionId Bölge ID'si
+     * @param limit Maksimum oyuncu sayısı
+     */
+    public void setRegionLimit(String provider, String regionId, int limit) {
+        limitManager.setLimit(provider, regionId, limit);
     }
 }

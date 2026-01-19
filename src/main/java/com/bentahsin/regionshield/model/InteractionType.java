@@ -1,9 +1,5 @@
 package com.bentahsin.regionshield.model;
 
-/**
- * Oyuncunun bölge üzerinde gerçekleştirebileceği eylem türlerini tanımlar.
- * Tüm Hook'lar bu türleri kendi iç yapılarına (Flag, Permission vb.) dönüştürmelidir.
- */
 public enum InteractionType {
     /** Blok kırma işlemi (Madencilik vb.) */
     BLOCK_BREAK,
