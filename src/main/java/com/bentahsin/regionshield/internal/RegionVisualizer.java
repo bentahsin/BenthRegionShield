@@ -26,7 +26,7 @@ public class RegionVisualizer {
      * @param player Sınırları görecek olan oyuncu.
      * @param bounds Görselleştirilecek olan bölgenin {@link RegionBounds} nesnesi.
      */
-    public static void show(JavaPlugin plugin, Player player, RegionBounds bounds) {
+    public static void show(JavaPlugin plugin, Player player, RegionBounds bounds, Particle particle) {
         if (bounds == null || !player.isOnline()) return;
 
         new BukkitRunnable() {
@@ -38,7 +38,7 @@ public class RegionVisualizer {
                     this.cancel();
                     return;
                 }
-                drawCuboid(player, bounds.getMin(), bounds.getMax());
+                drawCuboid(player, bounds.getMin(), bounds.getMax(), particle);
             }
         }.runTaskTimer(plugin, 0L, 5L);
     }
@@ -51,27 +51,27 @@ public class RegionVisualizer {
      * @param min    Küpoidin minimum köşe noktası (en düşük X, Y, Z).
      * @param max    Küpoidin maksimum köşe noktası (en yüksek X, Y, Z).
      */
-    private static void drawCuboid(Player player, Location min, Location max) {
+    private static void drawCuboid(Player player, Location min, Location max, Particle particle) {
         World world = min.getWorld();
         if (world == null || !world.equals(player.getWorld())) return;
 
         double minX = min.getX(); double minY = min.getY(); double minZ = min.getZ();
         double maxX = max.getX() + 1; double maxY = max.getY() + 1; double maxZ = max.getZ() + 1;
 
-        drawLine(player, minX, minY, minZ, maxX, minY, minZ);
-        drawLine(player, minX, minY, minZ, minX, minY, maxZ);
-        drawLine(player, maxX, minY, minZ, maxX, minY, maxZ);
-        drawLine(player, minX, minY, maxZ, maxX, minY, maxZ);
+        drawLine(player, minX, minY, minZ, maxX, minY, minZ, particle);
+        drawLine(player, minX, minY, minZ, minX, minY, maxZ, particle);
+        drawLine(player, maxX, minY, minZ, maxX, minY, maxZ, particle);
+        drawLine(player, minX, minY, maxZ, maxX, minY, maxZ, particle);
 
-        drawLine(player, minX, maxY, minZ, maxX, maxY, minZ);
-        drawLine(player, minX, maxY, minZ, minX, maxY, maxZ);
-        drawLine(player, maxX, maxY, minZ, maxX, maxY, maxZ);
-        drawLine(player, minX, maxY, maxZ, maxX, maxY, maxZ);
+        drawLine(player, minX, maxY, minZ, maxX, maxY, minZ, particle);
+        drawLine(player, minX, maxY, minZ, minX, maxY, maxZ, particle);
+        drawLine(player, maxX, maxY, minZ, maxX, maxY, maxZ, particle);
+        drawLine(player, minX, maxY, maxZ, maxX, maxY, maxZ, particle);
 
-        drawLine(player, minX, minY, minZ, minX, maxY, minZ);
-        drawLine(player, maxX, minY, minZ, maxX, maxY, minZ);
-        drawLine(player, minX, minY, maxZ, minX, maxY, maxZ);
-        drawLine(player, maxX, minY, maxZ, maxX, maxY, maxZ);
+        drawLine(player, minX, minY, minZ, minX, maxY, minZ, particle);
+        drawLine(player, maxX, minY, minZ, maxX, maxY, minZ, particle);
+        drawLine(player, minX, minY, maxZ, minX, maxY, maxZ, particle);
+        drawLine(player, maxX, minY, maxZ, maxX, maxY, maxZ, particle);
     }
 
     /**
@@ -86,7 +86,7 @@ public class RegionVisualizer {
      * @param y2     Bitiş noktasının Y koordinatı.
      * @param z2     Bitiş noktasının Z koordinatı.
      */
-    private static void drawLine(Player player, double x1, double y1, double z1, double x2, double y2, double z2) {
+    private static void drawLine(Player player, double x1, double y1, double z1, double x2, double y2, double z2, Particle particle) {
         Location start = new Location(player.getWorld(), x1, y1, z1);
         double distance = start.distance(new Location(player.getWorld(), x2, y2, z2));
         double step = 0.5;
@@ -94,7 +94,7 @@ public class RegionVisualizer {
         Vector vector = new Vector(x2 - x1, y2 - y1, z2 - z1).normalize().multiply(step);
 
         for (double d = 0; d < distance; d += step) {
-            player.spawnParticle(Particle.FLAME, start, 1, 0, 0, 0, 0);
+            player.spawnParticle(particle, start, 1, 0, 0, 0, 0);
             start.add(vector);
         }
     }

@@ -1,6 +1,7 @@
 package com.bentahsin.regionshield.internal;
 
 import com.bentahsin.regionshield.BenthRegionShield;
+import com.bentahsin.regionshield.events.BenthRegionCrossEvent;
 import com.bentahsin.regionshield.events.BenthRegionEnterEvent;
 import com.bentahsin.regionshield.events.BenthRegionLeaveEvent;
 import com.bentahsin.regionshield.model.RegionInfo;
@@ -113,6 +114,26 @@ public class RegionLimitManager implements Listener {
     }
 
     /**
+     * CrossEvent desteği: Oyuncu A'dan B'ye geçtiğinde
+     * A'nın sayacını düşür, B'nin limitini kontrol et ve sayacını artır.
+     */
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onRegionCross(BenthRegionCrossEvent event) {
+        if (event.isCancelled()) return;
+
+        RegionInfo from = event.getFromRegion();
+        RegionInfo to = event.getToRegion();
+
+        if (isFull(to) && !event.getPlayer().hasPermission("regionshield.bypass.limit")) {
+            event.setCancelled(true);
+            return;
+        }
+
+        decrement(from);
+        increment(to);
+    }
+
+    /**
      * Bir oyuncu bir bölgeye girdiğinde tetiklenir. Bu metot, en düşük öncelikle çalışarak
      * bölgeye giriş olayını en başta yakalar ve gerekirse iptal eder.
      *
@@ -123,10 +144,14 @@ public class RegionLimitManager implements Listener {
         if (event.isCancelled()) return;
 
         RegionInfo info = event.getRegion();
+        String limitPerm = manager.getOptions().getLimitBypassPermission();
 
         if (isFull(info) && !event.getPlayer().hasPermission("regionshield.bypass.limit")) {
             event.setCancelled(true);
-            event.getPlayer().sendMessage("§cBu bölge dolu! (" + activeCounts.get(getKey(info)) + "/" + limits.get(getKey(info)) + ")");
+            int current = activeCounts.get(getKey(info));
+            int max = limits.get(getKey(info));
+            String statusStr = current + "/" + max;
+            manager.getOptions().getLimitRejectionHandler().accept(event.getPlayer(), statusStr);
             return;
         }
         increment(info);

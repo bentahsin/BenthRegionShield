@@ -19,12 +19,14 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 
 /**
- * RegionShield ek açıklamalarını (annotations) işleyen ve mantığını yürüten dahili motor.
- * Bu sınıf, bir metot üzerindeki ek açıklamaları bir kez yansıtma (reflection) ile okur,
- * bu mantığı çalıştırılabilir bir formata "derler" ve sonraki çağrılar için önbelleğe alır.
- * Bu yaklaşım, her çağrıda maliyetli yansıtma işlemlerini tekrarlamayı önleyerek performansı önemli ölçüde artırır.
+ * <b>RegionShield Annotation İşleme Motoru.</b>
  * <p>
- * Bu sınıf, API'nin dahili bir parçasıdır ve son kullanıcılar tarafından doğrudan kullanılması amaçlanmamıştır.
+ * Bu sınıf, metotların üzerine eklenen {@code @RegionCheck}, {@code @RegionLimit} vb.
+ * ek açıklamaları okur, analiz eder ve çalıştırılabilir mantığa dönüştürür.
+ * <p>
+ * <b>Performans Notu:</b> Yansıtma (Reflection) işlemi her metot için yalnızca <u>bir kez</u> yapılır.
+ * Oluşturulan mantık {@link GateLogic} kaydı (record) olarak önbelleğe alınır ve sonraki çağrılarda
+ * doğrudan bu önbellek kullanılır. Bu sayede çalışma zamanı maliyeti minimuma indirilir.
  */
 @SuppressFBWarnings({"EI_EXPOSE_REP", "EI_EXPOSE_REP2"})
 public class ShieldGate {
@@ -33,33 +35,38 @@ public class ShieldGate {
     private final Map<String, GateLogic> gateCache = new ConcurrentHashMap<>();
 
     /**
-     * ShieldGate'in yeni bir örneğini oluşturur.
+     * ShieldGate motorunu başlatır.
      *
-     * @param manager Ana BenthRegionShield API yöneticisi.
+     * @param manager Ana API yöneticisi.
      */
     public ShieldGate(BenthRegionShield manager) {
         this.manager = manager;
     }
 
     /**
-     * Belirtilen bir metot için ek açıklama tabanlı koruma denetimini gerçekleştirir.
-     * Bu metot, her çağrıda yansıtma yapmaz. Bunun yerine, metot için önceden derlenmiş ve
-     * önbelleğe alınmış mantığı alır ve çalıştırır. Eğer mantık önbellekte yoksa,
-     * {@link #buildLogic} metodunu çağırarak oluşturur ve önbelleğe ekler.
+     * Bir metodun çalıştırılıp çalıştırılmayacağını, üzerindeki ek açıklamalara göre denetler.
+     * <p>
+     * Bu metot, geliştiricilerin kodlarının başına {@code if (!api.guard(...)) return;} şeklinde
+     * ekleyerek koruma sağlamaları için tasarlanmıştır.
      *
-     * @param instance   Metodun ait olduğu nesne örneği.
+     * @param instance   Metodun ait olduğu sınıf örneği (this).
      * @param methodName Denetlenecek metodun adı.
-     * @param player     Denetimin hedefi olan oyuncu.
-     * @param paramTypes Metodun parametre türleri (overload edilmiş metotları ayırt etmek için).
-     * @return Oyuncunun eylemi gerçekleştirmesine izin veriliyorsa true, aksi takdirde false.
+     * @param player     İşlemi yapan oyuncu.
+     * @param paramTypes Metodun parametre türleri (Overloading desteği için).
+     * @return Oyuncunun geçişine izin veriliyorsa {@code true}, engelleniyorsa {@code false}.
      */
     public boolean inspect(Object instance, String methodName, Player player, Class<?>... paramTypes) {
         String key = instance.getClass().getName() + "#" + methodName;
         GateLogic logic = gateCache.computeIfAbsent(key, k -> buildLogic(instance.getClass(), methodName, paramTypes));
 
+        if (player.hasPermission(manager.getOptions().getBypassPermission()) || player.isOp()) {
+            return true;
+        }
+
         if (logic.bypassPerm != null && player.hasPermission(logic.bypassPerm)) {
             return true;
         }
+
         if (logic.blockChecker != null && !logic.blockChecker.test(player)) {
             return false;
         }
@@ -76,15 +83,14 @@ public class ShieldGate {
     }
 
     /**
-     * Bir metot üzerindeki RegionShield ek açıklamalarını yansıtma (reflection) ile okur
-     * ve bu kuralları temsil eden bir {@link GateLogic} nesnesi oluşturur.
-     * Bu metot, her metot için SADECE BİR KEZ çağrılır ve sonucu önbelleğe alınır.
-     * Tüm maliyetli işlemler burada yapılır.
+     * Belirtilen metodu analiz eder ve koruma mantığını inşa eder.
+     * <p>
+     * Bu metot "Ağır İş" yapan kısımdır ve sadece önbellekte veri yoksa çağrılır.
      *
-     * @param clazz      Metodun bulunduğu sınıf.
-     * @param methodName İncelenecek metodun adı.
-     * @param paramTypes Metodun parametre türleri.
-     * @return Derlenmiş doğrulama mantığını içeren bir GateLogic nesnesi.
+     * @param clazz      Sınıf.
+     * @param methodName Metot Adı.
+     * @param paramTypes Parametreler.
+     * @return Derlenmiş mantık seti.
      */
     private GateLogic buildLogic(Class<?> clazz, String methodName, Class<?>... paramTypes) {
         Method method;
@@ -170,7 +176,6 @@ public class ShieldGate {
                     case OWNER -> info.getOwners().contains(uuid);
                     case MEMBER_OR_OWNER -> info.getOwners().contains(uuid) || info.getMembers().contains(uuid);
                     case VISITOR -> true;
-                    default -> false;
                 };
             });
         }
@@ -179,15 +184,7 @@ public class ShieldGate {
     }
 
     /**
-     * Bir ek açıklamayı (annotation) önce metot üzerinde, eğer bulunamazsa sınıf üzerinde arar.
-     * Bu, bir sınıfın tamamı için varsayılan bir kural belirleyip,
-     * belirli metotlar için bu kuralı geçersiz kılma (override) olanağı tanır.
-     *
-     * @param clazz           Sınıf referansı.
-     * @param method          Metot referansı.
-     * @param annotationClass Aranacak ek açıklama türü.
-     * @param <T>             Ek açıklamanın tipi.
-     * @return Bulunan ek açıklama örneği veya bulunamazsa null.
+     * Annotation okuma yardımcısı. Öncelik metottadır, yoksa sınıfa bakar.
      */
     private <T extends Annotation> T getAnnotation(Class<?> clazz, Method method, Class<T> annotationClass) {
         if (method.isAnnotationPresent(annotationClass)) {
@@ -200,26 +197,19 @@ public class ShieldGate {
     }
 
     /**
-     * Bir metot için derlenmiş doğrulama mantığını tutan basit bir veri yapısı.
-     * Bu sınıf, yansıtma ile elde edilen kuralları, hızlıca çalıştırılabilen
-     * fonksiyonel arayüzler (Predicate, Function) olarak saklar.
-     *
-     * @param bypassPerm   Varsa, tüm kontrolleri atlamak için gereken yetki (permission).
-     * @param blockChecker Varsa, oyuncunun belirli bir blokta/bloğun üzerinde olup olmadığını kontrol eden fonksiyon.
-     * @param infoFetcher  Oyuncunun mevcut konumuna göre bölge bilgilerini getiren fonksiyon.
-     * @param validators   Sırayla çalıştırılacak olan tüm doğrulama kurallarının listesi.
+     * Derlenmiş ve çalıştırılmaya hazır koruma kurallarını tutan veri kaydı.
      */
-        private record GateLogic(String bypassPerm, Predicate<Player> blockChecker,
-                                 Function<Player, RegionInfo> infoFetcher,
-                                 List<BiPredicate<Player, RegionInfo>> validators) {
-            private GateLogic(String bypassPerm,
-                              Predicate<Player> blockChecker,
-                              Function<Player, RegionInfo> infoFetcher,
-                              List<BiPredicate<Player, RegionInfo>> validators) {
-                this.bypassPerm = bypassPerm;
-                this.blockChecker = blockChecker;
-                this.infoFetcher = infoFetcher;
-                this.validators = Collections.unmodifiableList(validators);
-            }
+    private record GateLogic(String bypassPerm, Predicate<Player> blockChecker,
+                             Function<Player, RegionInfo> infoFetcher,
+                             List<BiPredicate<Player, RegionInfo>> validators) {
+        private GateLogic(String bypassPerm,
+                          Predicate<Player> blockChecker,
+                          Function<Player, RegionInfo> infoFetcher,
+                          List<BiPredicate<Player, RegionInfo>> validators) {
+            this.bypassPerm = bypassPerm;
+            this.blockChecker = blockChecker;
+            this.infoFetcher = infoFetcher;
+            this.validators = Collections.unmodifiableList(validators);
         }
+    }
 }

@@ -1,6 +1,7 @@
 package com.bentahsin.regionshield.internal;
 
 import com.bentahsin.regionshield.BenthRegionShield;
+import com.bentahsin.regionshield.events.BenthRegionCrossEvent;
 import com.bentahsin.regionshield.events.BenthRegionEnterEvent;
 import com.bentahsin.regionshield.events.BenthRegionLeaveEvent;
 import com.bentahsin.regionshield.model.RegionInfo;
@@ -123,6 +124,19 @@ public class RegionMovementListener implements Listener {
         boolean changed = !Objects.equals(lastRegion, currentRegion);
 
         if (changed) {
+            if (lastRegion != null && currentRegion != null && !lastRegion.getId().equals(currentRegion.getId())) {
+                BenthRegionCrossEvent crossEvent = new BenthRegionCrossEvent(player, lastRegion, currentRegion);
+                Bukkit.getPluginManager().callEvent(crossEvent);
+
+                if (crossEvent.isCancelled()) {
+                    if (parentEvent != null) parentEvent.setCancelled(true);
+                    return;
+                }
+
+                lastRegions.put(uuid, currentRegion);
+                return;
+            }
+
             if (lastRegion != null) {
                 BenthRegionLeaveEvent leaveEvent = new BenthRegionLeaveEvent(player, lastRegion);
                 Bukkit.getPluginManager().callEvent(leaveEvent);
